@@ -23,4 +23,3 @@ public abstract class PeriodicMetricsEmitter {
      */
     protected abstract List<Metric> getMetrics();
 }
-

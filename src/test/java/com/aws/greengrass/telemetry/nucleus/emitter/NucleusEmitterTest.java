@@ -125,7 +125,8 @@ class NucleusEmitterTest extends GGServiceTestUtil {
         when(mockSme.getMetrics()).thenReturn(mockSmeMetrics);
         when(mockKme.getMetrics()).thenReturn(mockKmeMetrics);
 
-        nucleusEmitter = new NucleusEmitter(this.config, mockSme, mockKme, mockPubSubPublisher, mockMqttPublisher, mockScheduledExecutorService);
+        nucleusEmitter = new NucleusEmitter(this.config, mockKme, mockPubSubPublisher, mockMqttPublisher, mockScheduledExecutorService);
+        nucleusEmitter.sme = mockSme;
         nucleusEmitter.retrieveMetricsJson(mockJsonMapper);
         verify(mockSme, times(1)).getMetrics();
         verify(mockKme, times(1)).getMetrics();
@@ -138,7 +139,8 @@ class NucleusEmitterTest extends GGServiceTestUtil {
         when(mockSme.getMetrics()).thenReturn(mockSmeMetrics);
         when(mockKme.getMetrics()).thenReturn(mockKmeMetrics);
 
-        nucleusEmitter = new NucleusEmitter(this.config, mockSme, mockKme, mockPubSubPublisher, mockMqttPublisher, mockScheduledExecutorService);
+        nucleusEmitter = new NucleusEmitter(this.config, mockKme, mockPubSubPublisher, mockMqttPublisher, mockScheduledExecutorService);
+        nucleusEmitter.sme = mockSme;
 
         doThrow(JsonProcessingException.class).when(mockJsonMapper).writeValueAsString(any());
         ignoreExceptionOfType(context, JsonProcessingException.class);

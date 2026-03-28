@@ -57,7 +57,7 @@ public class NucleusEmitter extends PluginService {
 
     private static final ObjectMapper jsonMapper = SerializerFactory.getFailSafeJsonObjectMapper();
 
-    private final SystemMetricsEmitter sme;
+    volatile SystemMetricsEmitter sme = new SystemMetricsEmitter();
     private final KernelMetricsEmitter kme;
 
     //Metric publishers
@@ -71,7 +71,6 @@ public class NucleusEmitter extends PluginService {
      *  Constructs a new NucleusEmitter to start publishing telemetry from the Nucleus.
      *
      * @param t                 {@link Topics}
-     * @param sme               {@link SystemMetricsEmitter}
      * @param kme               {@link KernelMetricsEmitter}
      * @param pubSubPublisher   {@link PubSubPublisher}
      * @param mqttPublisher     {@link MqttPublisher}
@@ -79,11 +78,10 @@ public class NucleusEmitter extends PluginService {
      *
      */
     @Inject
-    public NucleusEmitter(Topics t, SystemMetricsEmitter sme, KernelMetricsEmitter kme,
+    public NucleusEmitter(Topics t, KernelMetricsEmitter kme,
                           PubSubPublisher pubSubPublisher, MqttPublisher mqttPublisher,
                           ScheduledExecutorService ses) {
         super(t);
-        this.sme = sme;
         this.kme = kme;
         this.pubSubPublisher = pubSubPublisher;
         this.mqttPublisher = mqttPublisher;
@@ -103,8 +101,15 @@ public class NucleusEmitter extends PluginService {
         boolean mqttTopicChanged = !configuration.getMqttTopic().equals(newConfiguration.getMqttTopic());
         boolean telemetryPublishIntervalMsChanged = configuration.getTelemetryPublishIntervalMs()
                 != newConfiguration.getTelemetryPublishIntervalMs();
+        boolean metricsLevelChanged = !configuration.getMetricsLevel()
+                .equals(newConfiguration.getMetricsLevel());
+        boolean excludeMountsChanged = !configuration.getExcludeMounts()
+                .equals(newConfiguration.getExcludeMounts());
+        boolean excludeInterfacesChanged = !configuration.getExcludeInterfaces()
+                .equals(newConfiguration.getExcludeInterfaces());
 
-        if (!pubSubPublishChanged && !mqttTopicChanged && !telemetryPublishIntervalMsChanged) {
+        if (!pubSubPublishChanged && !mqttTopicChanged && !telemetryPublishIntervalMsChanged
+                && !metricsLevelChanged && !excludeMountsChanged && !excludeInterfacesChanged) {
             return;
         }
 
@@ -112,13 +117,15 @@ public class NucleusEmitter extends PluginService {
         if (newConfiguration.getTelemetryPublishIntervalMs() < MIN_TELEMETRY_PUBLISH_INTERVAL_MS) {
             logger.warn(INVALID_PUBLISH_THRESHOLD_LOG, MIN_TELEMETRY_PUBLISH_INTERVAL_MS,
                     MIN_TELEMETRY_PUBLISH_INTERVAL_MS);
-            newConfiguration = NucleusEmitterConfiguration.builder()
-                    .pubsubPublish(newConfiguration.isPubsubPublish())
-                    .mqttTopic(newConfiguration.getMqttTopic())
+            newConfiguration = newConfiguration.toBuilder()
                     .telemetryPublishIntervalMs(MIN_TELEMETRY_PUBLISH_INTERVAL_MS)
                     .build();
         }
         
+        this.sme = new SystemMetricsEmitter(
+                newConfiguration.isDetailedMetrics(),
+                newConfiguration.getExcludeMounts(),
+                newConfiguration.getExcludeInterfaces());
         currentConfiguration.set(newConfiguration);
         scheduleTelemetryPublish();
     }

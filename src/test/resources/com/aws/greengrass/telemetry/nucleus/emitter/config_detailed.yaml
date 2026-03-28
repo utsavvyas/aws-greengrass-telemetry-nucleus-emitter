@@ -1,0 +1,10 @@
+---
+services:
+  main:
+    dependencies:
+      - aws.greengrass.telemetry.NucleusEmitter
+  aws.greengrass.telemetry.NucleusEmitter:
+    configuration:
+      pubSubPublish: true
+      telemetryPublishIntervalMs: 1000
+      metricsLevel: "extended"
