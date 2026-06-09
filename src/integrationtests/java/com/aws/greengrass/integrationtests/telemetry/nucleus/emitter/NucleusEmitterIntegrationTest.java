@@ -30,7 +30,9 @@ import org.slf4j.event.Level;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.CountDownLatch;
@@ -100,6 +102,12 @@ class NucleusEmitterIntegrationTest extends BaseITCase {
     @AfterEach
     void teardown() {
         kernel.shutdown();
+        Path emfDir = Paths.get("/tmp/greengrass/telemetry");
+        if (Files.isDirectory(emfDir)) {
+            try (java.util.stream.Stream<Path> files = Files.list(emfDir)) {
+                files.forEach(f -> f.toFile().delete());
+            } catch (IOException ignored) { }
+        }
     }
 
     private void defaultInitialization() throws Exception {
@@ -622,6 +630,40 @@ class NucleusEmitterIntegrationTest extends BaseITCase {
                     OUTPUT_MODE_BOTH_NUCLEUS_EMITTER_KERNEL_CONFIG)).toString(), kernel, rootDir);
             assertTrue(configLog.await(30, TimeUnit.SECONDS), "Config log detected.");
             assertTrue(pubsubLog.await(30, TimeUnit.SECONDS), "Pub/sub publish log detected.");
+        }
+    }
+
+    @Test
+    void GIVEN_output_mode_both_WHEN_publish_fires_THEN_emf_file_created() throws Exception {
+        final CountDownLatch pubsubLog = new CountDownLatch(1);
+        try (AutoCloseable listener = TestUtils.createCloseableLogListener((m) -> {
+            String stdoutStr = m.getMessage();
+            if (stdoutStr != null && stdoutStr.contains(PUBSUB_PUBLISH_STARTING)) {
+                pubsubLog.countDown();
+            }
+        })) {
+            startKernelWithConfig(Objects.requireNonNull(NucleusEmitterTestUtils.class.getResource(
+                    OUTPUT_MODE_BOTH_NUCLEUS_EMITTER_KERNEL_CONFIG)).toString(), kernel, rootDir);
+            assertTrue(pubsubLog.await(30, TimeUnit.SECONDS), "Pub/sub publish log detected.");
+
+            // Poll for EMF file creation (publish fires immediately with initialDelay=0)
+            Path emfDir = Paths.get("/tmp/greengrass/telemetry");
+            long deadline = System.currentTimeMillis() + 30000;
+            long emfCount = 0;
+            while (System.currentTimeMillis() < deadline) {
+                if (Files.isDirectory(emfDir)) {
+                    try (java.util.stream.Stream<Path> files = Files.list(emfDir)) {
+                        emfCount = files
+                                .filter(p -> p.getFileName().toString().startsWith("emf-metrics"))
+                                .count();
+                    }
+                    if (emfCount > 0) {
+                        break;
+                    }
+                }
+                Thread.sleep(1000);
+            }
+            assertTrue(emfCount > 0, "EMF file created in output directory.");
         }
     }
 

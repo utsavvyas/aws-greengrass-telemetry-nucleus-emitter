@@ -476,9 +476,6 @@
                         </goals>
                         <configuration>
                             <dataFile>${project.build.directory}/jacoco-it.exec</dataFile>
-                            <excludes>
-                                <exclude>com/aws/greengrass/telemetry/nucleus/emitter/emf/**</exclude>
-                            </excludes>
                             <rules>
                                 <rule>
                                     <element>BUNDLE</element>
